@@ -278,6 +278,13 @@ async function buildContainerArgs(
     }
   }
 
+  // Inject GitHub token so gh CLI works inside containers
+  const ghEnv = readEnvFile(['GH_TOKEN']);
+  const ghToken = ghEnv.GH_TOKEN || process.env.GH_TOKEN;
+  if (ghToken) {
+    args.push('-e', `GH_TOKEN=${ghToken}`);
+  }
+
   // Runtime-specific args for host gateway resolution (needed in all modes)
   args.push(...hostGatewayArgs());
 
