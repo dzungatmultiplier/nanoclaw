@@ -10,7 +10,9 @@ import fs from 'fs';
 import path from 'path';
 import pino from 'pino';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const qrcode = require('qrcode-terminal') as { generate: (text: string, opts: { small: boolean }) => void };
+const qrcode = require('qrcode-terminal') as {
+  generate: (text: string, opts: { small: boolean }) => void;
+};
 import readline from 'readline';
 
 import {
