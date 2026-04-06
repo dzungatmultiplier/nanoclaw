@@ -4,6 +4,7 @@
  */
 import { ChildProcess, spawn } from 'child_process';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 
 import {
@@ -25,6 +26,7 @@ import {
   stopContainer,
 } from './container-runtime.js';
 import { OneCLI } from '@onecli-sh/sdk';
+import { readEnvFile } from './env.js';
 import { validateAdditionalMounts } from './mount-security.js';
 import { RegisteredGroup } from './types.js';
 
@@ -233,22 +235,50 @@ async function buildContainerArgs(
   // Pass host timezone so container's local time matches the user's
   args.push('-e', `TZ=${TIMEZONE}`);
 
-  // OneCLI gateway handles credential injection — containers never see real secrets.
-  // The gateway intercepts HTTPS traffic and injects API keys or OAuth tokens.
-  const onecliApplied = await onecli.applyContainerConfig(args, {
-    addHostMapping: false, // Nanoclaw already handles host gateway
-    agent: agentIdentifier,
-  });
-  if (onecliApplied) {
-    logger.info({ containerName }, 'OneCLI gateway config applied');
+  const bedrockEnv = readEnvFile(['CLAUDE_CODE_USE_BEDROCK']);
+  const isBedrockMode = bedrockEnv.CLAUDE_CODE_USE_BEDROCK === '1';
+
+  if (isBedrockMode) {
+    // Bedrock mode: containers sign requests directly with AWS credentials.
+    // Mount ~/.aws read-only so the container can use SSO/credential files.
+    const awsDir = path.join(process.env.HOME || os.homedir(), '.aws');
+    if (fs.existsSync(awsDir)) {
+      args.push(...readonlyMountArgs(awsDir, '/home/node/.aws'));
+    }
+    // Inject Bedrock env vars from .env into the container
+    const bedrockKeys = [
+      'CLAUDE_CODE_USE_BEDROCK',
+      'CLAUDE_API_PROVIDER',
+      'AWS_PROFILE',
+      'AWS_REGION',
+      'ANTHROPIC_MODEL',
+      'ANTHROPIC_DEFAULT_OPUS_MODEL',
+      'ANTHROPIC_DEFAULT_SONNET_MODEL',
+      'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+    ];
+    const allBedrockEnv = readEnvFile(bedrockKeys);
+    for (const key of bedrockKeys) {
+      const val = allBedrockEnv[key] || process.env[key];
+      if (val) args.push('-e', `${key}=${val}`);
+    }
   } else {
-    logger.warn(
-      { containerName },
-      'OneCLI gateway not reachable — container will have no credentials',
-    );
+    // OneCLI gateway handles credential injection — containers never see real secrets.
+    // The gateway intercepts HTTPS traffic and injects API keys or OAuth tokens.
+    const onecliApplied = await onecli.applyContainerConfig(args, {
+      addHostMapping: false, // Nanoclaw already handles host gateway
+      agent: agentIdentifier,
+    });
+    if (onecliApplied) {
+      logger.info({ containerName }, 'OneCLI gateway config applied');
+    } else {
+      logger.warn(
+        { containerName },
+        'OneCLI gateway not reachable — container will have no credentials',
+      );
+    }
   }
 
-  // Runtime-specific args for host gateway resolution
+  // Runtime-specific args for host gateway resolution (needed in all modes)
   args.push(...hostGatewayArgs());
 
   // Run as host user so bind-mounted files are accessible.
