@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash setup.sh)",
+      "Bash(npx tsx:*)",
+      "Bash(npm run:*)",
+      "Bash(git remote:*)",
+      "Bash(git fetch:*)",
+      "Bash(git stash:*)",
+      "Bash(git merge:*)",
+      "Bash(git checkout:*)",
+      "Bash(git rm:*)",
+      "Bash(git add:*)",
+      "Bash(npm install:*)",
+      "Bash(npx vitest:*)",
+      "Bash(launchctl unload:*)",
+      "Bash(git commit:*)",
+      "Bash(node:*)",
+      "Bash(sqlite3:*)",
+      "Bash(whisper-cli --help)",
+      "Bash(ffmpeg -version)",
+      "Bash(ls /Users/dzung/src-3rd/nanoclaw/data/models/ggml-*.bin)",
+      "Bash(grep -v \"^$\")"
+    ]
+  }
+}
